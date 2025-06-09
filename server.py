@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect
 
 app = Flask(__name__)
 
@@ -19,18 +19,8 @@ def generate_cookie():
 
 @app.route("/login")
 def login():
-    # This is a simple placeholder login page.
-    # Replace this with your actual login form or redirect.
-    return '''
-    <html>
-    <head><title>Login</title></head>
-    <body>
-        <h2>Login Page</h2>
-        <p>Please log in here to generate your cookie.</p>
-        <!-- Your login form goes here -->
-    </body>
-    </html>
-    '''
+    # Redirect user to the actual Garena login URL
+    return redirect("https://sso.garena.com/universal/login?app_id=10100&redirect_uri=https%3A%2F%2Faccount.garena.com%2F&locale=en-PH")
 
 if __name__ == "__main__":
     import os
