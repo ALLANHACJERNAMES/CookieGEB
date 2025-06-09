@@ -1,15 +1,13 @@
 from flask import Flask, jsonify
-import os
 
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "https://sso.garena.com/universal/login?app_id=10100&redirect_uri=https%3A%2F%2Faccount.garena.com%2F&locale=en-PH!"
+    return "Hello, Cookie Bot Server!"
 
 @app.route("/generate-cookie")
 def generate_cookie():
-    # Example cookie data
     cookie = {
         "_ga_1M7M9L6VPX": "GS2.1.s1749383929$o1$g0$t1749384032$j60$l0$h0",
         "ac_session": "0tcpjiswj3j0em2ohbesy121pp0yy0vq",
@@ -19,6 +17,22 @@ def generate_cookie():
     }
     return jsonify(cookie)
 
+@app.route("/login")
+def login():
+    # This is a simple placeholder login page.
+    # Replace this with your actual login form or redirect.
+    return '''
+    <html>
+    <head><title>Login</title></head>
+    <body>
+        <h2>Login Page</h2>
+        <p>Please log in here to generate your cookie.</p>
+        <!-- Your login form goes here -->
+    </body>
+    </html>
+    '''
+
 if __name__ == "__main__":
+    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
